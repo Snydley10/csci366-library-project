@@ -1,3 +1,7 @@
+# Ignore PostgreSQL configuration file
+database.properties
+
+
 # Compiled class file
 *.class
 
