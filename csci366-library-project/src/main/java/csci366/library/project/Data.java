@@ -1,0 +1,417 @@
+package csci366.library.project;
+
+import java.sql.*;
+import java.util.Date;
+import java.util.Calendar;
+import java.util.Properties;
+import java.io.*;
+
+/**
+ * This class retrieves data from the PostgreSQL Library database and has various
+ * methods for processing the tables and views into 2D arrays
+ * @author Brandon Snyder, Caleb Myhra
+ */
+public class Data {
+
+    //instance variables to connect to the database and Connection and
+    //Statement instances used throughout the class
+    Properties properties = loadProperties();
+    String jbdcURL = properties.getProperty("db.url");
+    String username = properties.getProperty("db.username");
+    String password = properties.getProperty("db.password");
+    Connection con;
+    Statement statement;
+
+    //Constructor that connects to database and handles any errors in connecting
+    public Data() throws Exception{
+        try { //Establishes connection to PostgreSQL Database
+            // load and register JDBC driver for MySQL
+           // Class.forName("org.postgresql.Driver");
+            this.con = DriverManager.getConnection(jbdcURL, username, password);
+            this.statement = con.createStatement();
+            System.out.println("Connected to PostgreSQL server\n\n");
+
+        } catch (Exception e) {
+            System.out.println("Error in Connecting to PostgreSQL server\n");
+            e.printStackTrace();
+        }
+
+    }
+
+    /**
+     * This method uses a SQL query to get all from Book table and then inserts
+     * each value into a 2D array using the createTable method
+     * @return 2D array of Book table
+     * @throws SQLException 
+     */
+    public String[][] getBooks() throws SQLException {
+
+        String query = "select * from book";
+        String countQuery = "select count(*) from book";
+
+        //get number of rows
+        int nRow = rowCount(countQuery);
+
+        //execute query for table
+        ResultSet result = statement.executeQuery(query);
+        ResultSetMetaData rsmd = result.getMetaData();
+
+        //get number of columns
+        int nCol = rsmd.getColumnCount();
+
+        //create and populate table
+        String[][] Table = createTable(nCol, nRow, result, rsmd);
+
+        result.close();
+        return Table;
+    }
+
+    /**
+     * This method uses a SQL query to get all from Available_Books view and
+     * then inserts each value into a 2D array using the createTable method
+     * @return 2D array of Available_Books view
+     * @throws SQLException 
+     */
+    public String[][] getAvailable() throws SQLException {
+
+        String query = "select * from available_books";
+        String countQuery = "select count(*) from available_books";
+
+        //get number of rows
+        int nRow = rowCount(countQuery);
+        if(nRow == 0)
+            throw new SQLException("Table is empty");
+
+        //execute query for table
+        ResultSet result = statement.executeQuery(query);
+        ResultSetMetaData rsmd = result.getMetaData();
+
+        //get number of columns
+        int nCol = rsmd.getColumnCount();
+
+        //create and populate table
+        String[][] Table = createTable(nCol, nRow, result, rsmd);
+
+        result.close();
+        return Table;
+    }
+
+    /**
+     * This method uses a SQL query to get all from Unavailable_Books view and
+     * then inserts each value into a 2D array using the createTable method
+     * @return 2D array of Unavailable_Books view
+     * @throws SQLException 
+     */
+    public String[][] getUnavailable() throws SQLException {
+
+        String query = "select * from unavailable_books";
+        String countQuery = "select count(*) from unavailable_books";
+
+        //get number of rows
+        int nRow = rowCount(countQuery);
+
+        //execute query for table
+        ResultSet result = statement.executeQuery(query);
+        ResultSetMetaData rsmd = result.getMetaData();
+
+        //get number of columns
+        int nCol = rsmd.getColumnCount();
+
+        //create and populate table
+        String[][] Table = createTable(nCol, nRow, result, rsmd);
+
+        result.close();
+        return Table;
+    }
+
+    /**
+     * This method uses a SQL query to get all from Book table where searchString is like the title
+     * and then inserts each value into a 2D array using the createTable method
+     * @param searchString
+     * @return 2D array of Book where title like searchString
+     * @throws SQLException 
+     */
+    public String[][] getByTitle(String searchString) throws SQLException {
+
+        String query = "select * from book where lower(title) like lower('%" + searchString + "%')";
+        String countQuery = "select count(*) from book where lower(title) like lower('%" + searchString + "%')";
+
+        //get number of rows
+        int nRow = rowCount(countQuery);
+
+        //execute query for table
+        ResultSet result = statement.executeQuery(query);
+        ResultSetMetaData rsmd = result.getMetaData();
+
+        //get number of columns
+        int nCol = rsmd.getColumnCount();
+
+        //create and populate table
+        String[][] Table = createTable(nCol, nRow, result, rsmd);
+
+        result.close();
+        return Table;
+    }
+
+    /**
+     * This method uses a SQL query to get all from Book table where searchString is like the genre
+     * and then inserts each value into a 2D array using the createTable method
+     * @param searchString
+     * @return 2D array of Book where genre like searchString
+     * @throws SQLException 
+     */
+    public String[][] getByGenre(String searchString) throws SQLException {
+
+        String query = "select * from book where lower(genre) like lower('%" + searchString + "%')";
+        String countQuery = "select count(*) from book where lower(genre) like lower('%" + searchString + "%')";
+
+        //get number of rows
+        int nRow = rowCount(countQuery);
+
+        //execute query for table
+        ResultSet result = statement.executeQuery(query);
+        ResultSetMetaData rsmd = result.getMetaData();
+
+        //get number of columns
+        int nCol = rsmd.getColumnCount();
+
+        //create and populate table
+        String[][] Table = createTable(nCol, nRow, result, rsmd);
+
+        result.close();
+        return Table;
+    }
+
+    /**
+     * This method uses a SQL query to get all from Books_By_Author view where searchString
+     * is like the author_name and then inserts each value into a 2D array using the createTable method
+     * @param searchString
+     * @return 2D array of Books_By_Author view where author_name like searchString
+     * @throws SQLException 
+     */
+    public String[][] getByAuthor(String searchString) throws SQLException {
+
+        String query = "select * from books_by_author where lower(author_name) like lower('%" + searchString + "%')";
+        String countQuery = "select count(*) from books_by_author where lower(author_name) like lower('%" + searchString + "%')";
+
+        //get number of rows
+        int nRow = rowCount(countQuery);
+
+        //execute query for table
+        ResultSet result = statement.executeQuery(query);
+        ResultSetMetaData rsmd = result.getMetaData();
+
+        //get number of columns
+        int nCol = rsmd.getColumnCount();
+
+        //create and populate table
+        String[][] Table = createTable(nCol, nRow, result, rsmd);
+        
+        result.close();
+        return Table;
+    }
+
+    /**
+     * This method uses a SQL query to get all from Checked_Out table
+     * and then inserts each value into a 2D array using the createTable method.
+     * This method is used in the checkOut method.
+     * @return 2D array of Checked_Out table
+     * @throws SQLException 
+     */
+    public String[][] checkedOutTable() throws SQLException {
+        String query = "select * from checked_out";
+        String countQuery = "select count(*) from checked_out";
+
+        //get number of rows
+        int nRow = rowCount(countQuery);
+
+        //execute query for table
+        ResultSet result = statement.executeQuery(query);
+        ResultSetMetaData rsmd = result.getMetaData();
+
+        //get number of columns
+        int nCol = rsmd.getColumnCount();
+
+        //create and populate table
+        String[][] Table = createTable(nCol, nRow, result, rsmd);
+
+        result.close();
+        return Table;
+    }
+
+    /**
+     * This method inserts into the Checked_Out table to check out a book by
+     * using a PreparedStatement and then executing that query if memberID and
+     * bookID are valid
+     * @param memberID
+     * @param bookID
+     * @return Boolean for if checkout method was successfully executed
+     * @throws SQLException 
+     */
+    public boolean checkOut(int memberID, int bookID) throws SQLException {
+
+        Calendar c = Calendar.getInstance();
+        c.setTime(new Date()); //today's date
+        c.add(Calendar.DATE, 14); //Adds two weeks
+        java.sql.Date due_date = new java.sql.Date(c.getTime().getTime());
+        String query = "insert into checked_out (memberID, bookID, due_date) "
+                + "values (?, ?, ?)";
+
+        // create the mysql insert preparedstatement
+        PreparedStatement preparedStmt = con.prepareStatement(query);
+        preparedStmt.setInt(1, memberID);
+        preparedStmt.setInt(2, bookID);
+        preparedStmt.setDate(3, due_date);
+
+        String[][] checkedTable = checkedOutTable();
+        String[][] allBooks = getBooks();
+        String[][] members = getMembers();
+
+        boolean checked = false;
+        for (int i = 1; i < checkedTable[1].length; i++) {
+            int current = Integer.valueOf(checkedTable[1][i]);
+            if (bookID == current) {
+                checked = true;
+            }
+        }
+
+        boolean bookExists = false;
+        for (int i = 1; i < allBooks[0].length; i++) {
+            int current = Integer.valueOf(allBooks[0][i]);
+            if (bookID == current) {
+                bookExists = true;
+            }
+        }
+
+        boolean memberExists = false;
+        for (int i = 1; i < members[0].length; i++) {
+            int current = Integer.valueOf(members[0][i]);
+            if (memberID == current) {
+                memberExists = true;
+            }
+        }
+
+        if (bookExists && memberExists && !checked) {
+            preparedStmt.execute();
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    /**
+     * This method inserts into the Members table using the given parameters
+     * to mimic creating a new member. It returns the generated MemberID so the
+     * user can use that to check out a book
+     * @param firstname
+     * @param lastname
+     * @param phoneNum
+     * @param address
+     * @return long representing the new MemberID generated
+     * @throws SQLException 
+     */
+    public long newMember(String firstname, String lastname, String phoneNum, String address) throws SQLException {
+
+        String query = "insert into member (firstname, lastname, phone_number, address) "
+                + "values (?, ?, ?, ?)";
+
+        // create the insert preparedstatement
+        String generatedColumns[] = {"memberid"};
+        PreparedStatement preparedStmt = con.prepareStatement(query, generatedColumns);
+        preparedStmt.setString(1, firstname);
+        preparedStmt.setString(2, lastname);
+        preparedStmt.setString(3, phoneNum);
+        preparedStmt.setString(4, address);
+
+        preparedStmt.execute();
+
+        ResultSet rs = preparedStmt.getGeneratedKeys();
+        rs.next();
+        long id = rs.getLong(1);
+        return id;
+    }
+
+    /**
+     * This method uses a SQL query to get all from Member table and then inserts
+     * each value into a 2D array using the createTable method
+     * @return 2D array of Member table
+     * @throws SQLException 
+     */
+    public String[][] getMembers() throws SQLException {
+        String query = "select * from member";
+        String countQuery = "select count(*) from member";
+
+        //get number of rows
+        int nRow = rowCount(countQuery);
+
+        //execute query for table
+        ResultSet result = statement.executeQuery(query);
+        ResultSetMetaData rsmd = result.getMetaData();
+
+        //get number of columns
+        int nCol = rsmd.getColumnCount();
+
+        //create and populate table
+        String[][] Table = createTable(nCol, nRow, result, rsmd);
+
+        result.close();
+        return Table;
+    }
+        
+    /**
+     * Utility method to get the rowCount from a ResultSet
+     * @param countQuery
+     * @return int rowCount
+     * @throws SQLException 
+     */
+    public int rowCount(String countQuery) throws SQLException {
+
+        ResultSet count = statement.executeQuery(countQuery);
+        count.next();
+        int nRow = count.getInt("count");
+        count.close();
+        return nRow;
+    }
+
+    public String[][] createTable(int nCol, int nRow, ResultSet result, ResultSetMetaData rsmd) throws SQLException {
+
+        //create array to store DB table
+        String[][] Table = new String[nCol][nRow + 1];
+
+        //populate array
+        for (int i = 1; i < nCol + 1; i++) {
+            Table[i - 1][0] = rsmd.getColumnName(i);
+        }
+        int j = 1;
+        while (result.next()) {
+            for (int i = 1; i <= nCol; i++) {
+                Object obj = result.getObject(i);
+                Table[i - 1][j] = (obj == null) ? null : obj.toString();
+            }
+            j++;
+        }
+        return Table;
+    }
+
+    /**
+     * Utility method to close the Statement and Connection instance
+     */
+    public void close() {
+        try {
+            this.statement.close();
+            this.con.close();
+        } catch (SQLException e) {
+        }
+    }
+    
+    private static Properties loadProperties() {
+        Properties properties = new Properties();
+        try (InputStream input = new FileInputStream("database.properties")) {
+            properties.load(input);
+        } catch (IOException e) {
+            e.printStackTrace();
+            // Handle the exception (e.g., log it, throw a runtime exception)
+        }
+        return properties;
+    }
+}
