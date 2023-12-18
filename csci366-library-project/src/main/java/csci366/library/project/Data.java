@@ -12,116 +12,112 @@ import java.io.*;
  * @author Brandon Snyder, Caleb Myhra
  */
 public class Data {
-
-    //instance variables to connect to the database and Connection and
-    //Statement instances used throughout the class
+    private Connection con;
+    private PreparedStatement preparedStatement;
+    private Statement statement;
     Properties properties = loadProperties();
-    String jbdcURL = properties.getProperty("db.url");
-    String username = properties.getProperty("db.username");
-    String password = properties.getProperty("db.password");
-    Connection con;
-    Statement statement;
+    public String adminPassword = properties.getProperty("db.adminPassword");
 
-    //Constructor that connects to database and handles any errors in connecting
-    public Data() throws Exception{
-        try { //Establishes connection to PostgreSQL Database
-            // load and register JDBC driver for MySQL
-           // Class.forName("org.postgresql.Driver");
-            this.con = DriverManager.getConnection(jbdcURL, username, password);
+
+    public Data() throws Exception {
+        try {
+            this.con = connectToDatabase();
             this.statement = con.createStatement();
-            System.out.println("Connected to PostgreSQL server\n\n");
-
+            
         } catch (Exception e) {
             System.out.println("Error in Connecting to PostgreSQL server\n");
             e.printStackTrace();
         }
-
     }
 
+    private Connection connectToDatabase() throws SQLException {
+        String jdbcURL = properties.getProperty("db.url");
+        String username = properties.getProperty("db.username");
+        String password = properties.getProperty("db.password");
+        
+
+        return DriverManager.getConnection(jdbcURL, username, password);
+    }
+
+    private static Properties loadProperties() {
+        Properties properties = new Properties();
+        try (InputStream input = new FileInputStream("database.properties")) {
+            properties.load(input);
+        } catch (IOException e) {
+            e.printStackTrace();
+            // Handle the exception (e.g., log it, throw a runtime exception)
+        }
+        return properties;
+    }
+    
+    // Refactored method to execute a query and return a 2D array
+    private String[][] executeQuery(String query, String countQuery) throws SQLException {
+        // Get number of rows
+        int nRow = rowCount(countQuery);
+
+        // Execute query for table
+        try (ResultSet result = statement.executeQuery(query)) {
+            ResultSetMetaData rsmd = result.getMetaData();
+            // Get number of columns
+            int nCol = rsmd.getColumnCount();
+
+            // Create and populate table
+            return createTable(nCol, nRow, result, rsmd);
+        }
+    }
+    
     /**
-     * This method uses a SQL query to get all from Book table and then inserts
-     * each value into a 2D array using the createTable method
-     * @return 2D array of Book table
+     * Utility method to get the rowCount from a ResultSet
+     * @param countQuery
+     * @return int Count
      * @throws SQLException 
      */
+    // Refactored method to get row count from a query
+    private int rowCount(String countQuery) throws SQLException {
+        try (ResultSet count = statement.executeQuery(countQuery)) {
+            count.next();
+            return count.getInt("count");
+        }
+    }
+    
+    // Refactored method to create a 2D array from ResultSet
+    private String[][] createTable(int nCol, int nRow, ResultSet result, ResultSetMetaData rsmd) throws SQLException {
+        // Create array to store DB table
+        String[][] table = new String[nCol][nRow + 1];
+
+        // Populate array
+        for (int i = 1; i < nCol + 1; i++) {
+            table[i - 1][0] = rsmd.getColumnName(i);
+        }
+
+        int j = 1;
+        while (result.next()) {
+            for (int i = 1; i <= nCol; i++) {
+                Object obj = result.getObject(i);
+                table[i - 1][j] = (obj == null) ? null : obj.toString();
+            }
+            j++;
+        }
+
+        return table;
+    }
+    
     public String[][] getBooks() throws SQLException {
-
-        String query = "select * from book";
-        String countQuery = "select count(*) from book";
-
-        //get number of rows
-        int nRow = rowCount(countQuery);
-
-        //execute query for table
-        ResultSet result = statement.executeQuery(query);
-        ResultSetMetaData rsmd = result.getMetaData();
-
-        //get number of columns
-        int nCol = rsmd.getColumnCount();
-
-        //create and populate table
-        String[][] Table = createTable(nCol, nRow, result, rsmd);
-
-        result.close();
-        return Table;
+        String query = "SELECT * FROM book";
+        String countQuery = "SELECT COUNT(*) FROM book";
+        return executeQuery(query, countQuery);
     }
 
-    /**
-     * This method uses a SQL query to get all from Available_Books view and
-     * then inserts each value into a 2D array using the createTable method
-     * @return 2D array of Available_Books view
-     * @throws SQLException 
-     */
     public String[][] getAvailable() throws SQLException {
-
-        String query = "select * from available_books";
-        String countQuery = "select count(*) from available_books";
-
-        //get number of rows
-        int nRow = rowCount(countQuery);
-        if(nRow == 0)
-            throw new SQLException("Table is empty");
-
-        //execute query for table
-        ResultSet result = statement.executeQuery(query);
-        ResultSetMetaData rsmd = result.getMetaData();
-
-        //get number of columns
-        int nCol = rsmd.getColumnCount();
-
-        //create and populate table
-        String[][] Table = createTable(nCol, nRow, result, rsmd);
-
-        result.close();
-        return Table;
+        String query = "SELECT * FROM available_books";
+        String countQuery = "SELECT COUNT(*) FROM available_books";
+        return executeQuery(query, countQuery);
     }
 
-    /**
-     * This method uses a SQL query to get all from Unavailable_Books view and
-     * then inserts each value into a 2D array using the createTable method
-     * @return 2D array of Unavailable_Books view
-     * @throws SQLException 
-     */
     public String[][] getUnavailable() throws SQLException {
-
-        String query = "select * from unavailable_books";
-        String countQuery = "select count(*) from unavailable_books";
-
-        //get number of rows
-        int nRow = rowCount(countQuery);
-
-        //execute query for table
-        ResultSet result = statement.executeQuery(query);
-        ResultSetMetaData rsmd = result.getMetaData();
-
-        //get number of columns
-        int nCol = rsmd.getColumnCount();
-
-        //create and populate table
-        String[][] Table = createTable(nCol, nRow, result, rsmd);
-
-        result.close();
-        return Table;
+        String query = "SELECT * FROM unavailable_books";
+        String countQuery = "SELECT COUNT(*) FROM unavailable_books";
+        return executeQuery(query, countQuery);
     }
 
     /**
@@ -357,61 +353,69 @@ public class Data {
         result.close();
         return Table;
     }
+    
+
+    public boolean isAdmin(String enteredPassword) {
+        return adminPassword.equals(enteredPassword);
+    }
+
+    public void deleteCheckedOutBook(int bookID) throws SQLException {
+        String query = "DELETE FROM checked_out WHERE bookID = ?";
         
-    /**
-     * Utility method to get the rowCount from a ResultSet
-     * @param countQuery
-     * @return int rowCount
-     * @throws SQLException 
-     */
-    public int rowCount(String countQuery) throws SQLException {
+        // Create the prepared statement
+        try (PreparedStatement preparedStmt = con.prepareStatement(query)) {
+            preparedStmt.setInt(1, bookID);
+            
+            // Execute the delete operation
+            preparedStmt.executeUpdate();
+        }
+    }
+    
+    public void addMember(String firstname, String lastname, String phoneNum, String address) throws SQLException {
+        String query = "INSERT INTO member (firstname, lastname, phone_number, address) VALUES (?, ?, ?, ?)";
 
-        ResultSet count = statement.executeQuery(countQuery);
-        count.next();
-        int nRow = count.getInt("count");
-        count.close();
-        return nRow;
+        
+         // Create the prepared statement
+         try (PreparedStatement preparedStmt = con.prepareStatement(query)) {
+            preparedStmt.setString(1, firstname);
+            preparedStmt.setString(2, lastname);
+            preparedStmt.setString(3, phoneNum);
+            preparedStmt.setString(4, address);
+
+            // Execute the insert operation
+            preparedStmt.executeUpdate();
+        }
     }
 
-    public String[][] createTable(int nCol, int nRow, ResultSet result, ResultSetMetaData rsmd) throws SQLException {
+    public void deleteMember(int memberId) throws SQLException {
+        String query = "DELETE FROM member WHERE memberID = ?";
 
-        //create array to store DB table
-        String[][] Table = new String[nCol][nRow + 1];
+        // Create the prepared statement
+        try (PreparedStatement preparedStmt = con.prepareStatement(query)) {
+            preparedStmt.setInt(1, memberId);
 
-        //populate array
-        for (int i = 1; i < nCol + 1; i++) {
-            Table[i - 1][0] = rsmd.getColumnName(i);
+            // Execute the delete operation
+            preparedStmt.executeUpdate();
         }
-        int j = 1;
-        while (result.next()) {
-            for (int i = 1; i <= nCol; i++) {
-                Object obj = result.getObject(i);
-                Table[i - 1][j] = (obj == null) ? null : obj.toString();
-            }
-            j++;
-        }
-        return Table;
     }
-
+        
     /**
      * Utility method to close the Statement and Connection instance
      */
     public void close() {
         try {
-            this.statement.close();
-            this.con.close();
+            if (preparedStatement != null) {
+                preparedStatement.close();
+            }
+            if (statement != null) {
+                statement.close();
+            }
+            if (con != null) {
+                con.close();
+            }
         } catch (SQLException e) {
-        }
-    }
-    
-    private static Properties loadProperties() {
-        Properties properties = new Properties();
-        try (InputStream input = new FileInputStream("database.properties")) {
-            properties.load(input);
-        } catch (IOException e) {
             e.printStackTrace();
-            // Handle the exception (e.g., log it, throw a runtime exception)
+            // Handle the exception (e.g., log it)
         }
-        return properties;
     }
 }
